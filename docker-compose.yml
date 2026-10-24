@@ -1,0 +1,60 @@
+services:
+  backend:
+    build: ./backend
+    image: ecobin-backend:latest
+    environment:
+      JWT_SECRET: change-me-in-production
+      # Defaults to the bundled Postgres below. Export DATABASE_URL before
+      # running compose to use a hosted database (e.g. Neon) instead.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ecobin:ecobin@postgres:5432/ecobin?sslmode=disable}
+      DB_PATH: /data/ecobin.sqlite # used only if DATABASE_URL is explicitly emptied
+    volumes:
+      - ecobin-data:/data
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ecobin
+      POSTGRES_PASSWORD: ecobin
+      POSTGRES_DB: ecobin
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecobin -d ecobin"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: ecobin-frontend:latest
+    environment:
+      BACKEND_URL: http://backend:4000/graphql
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ecobin-data:
+  pg-data:

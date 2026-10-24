@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecobin-frontend
+  namespace: ecobin
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecobin-frontend
+  template:
+    metadata:
+      labels:
+        app: ecobin-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ecobin-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: BACKEND_URL
+              value: http://ecobin-backend:4000/graphql
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecobin-frontend
+  namespace: ecobin
+spec:
+  type: NodePort
+  selector:
+    app: ecobin-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30080
